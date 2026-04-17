@@ -4,10 +4,11 @@ This is one place where you can find my notes for my study. Some of these are us
 
 ## Model Architectures
 
-* [ResNet50](Resnet50)
-* [AlexNet](AlexNet)
-* [DeepSeek-V3](DeepSeekV-3)
+* [ResNet50](https://github.com/lcskrishna/knowledge-vault/tree/main/ResNet)
+* [AlexNet](https://github.com/lcskrishna/knowledge-vault/tree/main/AlexNet)
+* [DeepSeek-V3](https://github.com/lcskrishna/knowledge-vault/tree/main/deepseekv3)
 
 ## Tools
+
 
 ## Study Materials
