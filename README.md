@@ -12,3 +12,7 @@ This is one place where you can find my notes for my study. Some of these are us
 
 
 ## Study Materials
+
+### GPU Programming Concepts
+
+* [GPU Concpets - SharedMemory](https://github.com/lcskrishna/knowledge-vault/blob/main/cuda-concepts/SharedMemory/Shared%20Memory.md)
