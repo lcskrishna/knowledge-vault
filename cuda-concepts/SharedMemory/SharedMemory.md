@@ -8,7 +8,7 @@
     2.  On Chip: Shared Memory, L1 cache, Readonly memory, constant memory
     3.  Shared memory only contains 64K.
 
-<figure class="image image-style-block-align-left image_resized" style="width:70.35%;"><img style="aspect-ratio:1536/801;" src="3_Shared Memory_image.png" width="1536" height="801"></figure>
+<figure class="image image-style-block-align-left image_resized" style="width:70.35%;"><img style="aspect-ratio:1536/801;" src="4_Shared Memory_image.png" width="1536" height="801"></figure>
 
 1.  **Shared memory usages**
     1.  Intra block thread communication channel.
@@ -106,4 +106,74 @@ Let's understand how shared memory is arranged and access patterns.
     *   If multiple threads want to access same memory bank - then multiple transactions.
     *   If all threads access same bank. Its called broadcast access.
     *   This results in serialized access and diminished memory bandwidth.
-*   Access mode depends on architectures either 32 bit or 64 Bit
+*   Access mode depends on architectures either 32 bit or 64 Bit 
+    
+    ### Row Major vs Column Major Access
+
+In this place, we will experiment with Row major and column major access and analyze the performance. 
+
+*   Let's say we have a matrix - 32 x 32. Let's store this in a shared memory that has 64 bit access pattern as below. So clearly row format each row can be loaded in one memory transaction.
+*   <figure class="image"><img style="aspect-ratio:1117/445;" src="3_Shared Memory_image.png" width="1117" height="445"></figure>
+*   ```src
+    #define b_dim_x 32
+    #define b_dim_y 32
+    
+    __global__ void setRowReadCol(int * output) {
+    	__shared__ int tile[b_dim_y][b_dim_x];
+    	int idx = threadIdx.y * blockDim.x + threadIdx.x;
+    	
+    	// store to shared memory
+    	tile[threadIdx.y][threadIdx.x] = idx;
+    	
+    	__syncthreads();
+    	
+    	//load from shared memory. 
+    	out[idx] = tile[threadIdx.x][threadIdx.y];
+    }
+    
+    __global__ void setColReadRow(int * output) {
+    	__shared__ int tile[b_dim_y][b_dim_x];
+    	int idx = threadIdx.y * blockDim.x + threadIdx.x;
+    	
+    	// store to shared memory.
+    	tile[threadIdx.x][threadIdx.y] = idx;
+    	
+    	__syncthreads();
+    	
+    	//load from shared memory. 
+    	out[idx] = tile[threadIdx.y][threadIdx.x];
+    
+    }
+    
+    // Host side. 
+    
+    cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte / cudaSharedMemBankSizeFourByte);
+    ```
+    
+    **Profiling the above Kernels:**
+    
+    nvprof --metrics shared\_load\_transactions\_per\_request, shared\_store\_transactions\_per\_request
+    
+    ### **Static & Dynamic Shared Memory**
+    
+    ```src
+    __global__ void setRowReadColDynamic(int * output)
+    {
+    	extern __shared__ int tile[];
+    	
+    	int row_idx = threadIdx.y * blockDim.x + threadIdx.x;
+    	int col_idx = threadIdx.x * blockDim.y + threadIdx.x;
+    	
+    	tile[row_index] = row_idx;
+    	
+    	__syncthreads();
+    	
+    	output[row_idx] = tile[col_idx];
+    }
+    
+    // Host side. 
+    
+    cudaMemSet(d_C, 0, nBytes);
+    setRowReadColDyn <<< grid, block, sizeof(int) * (nx * ny) >>> (dC);
+    cudaMemcpy(gpuRef, d_C, nBytes, cudaMemcpyDeviceToHost);
+    ```
