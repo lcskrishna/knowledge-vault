@@ -1,0 +1,181 @@
+=== Classes defined in this file ===
+  DeepseekV4MLP  (line 71)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/models/deepseek_v4.py
+      .__init__()  (line 72)
+      .forward()  (line 115)
+  DeepseekV4FP8Config  (line 122)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/models/deepseek_v4.py
+      .__init__()  (line 142)
+      .expert_dtype()  (line 149)
+      .is_scale_e8m0()  (line 172)
+      .get_name()  (line 178)
+      .override_quantization_method()  (line 182)
+      .get_quant_method()  (line 195)
+      .is_mxfp4_quant()  (line 209)
+  DeepseekV4MegaMoEExperts  (line 393)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/models/deepseek_v4.py
+      .__init__()  (line 396)
+      ._map_global_expert_id()  (line 476)
+      .weight_loader()  (line 481)
+      ._ue8m0_uint8_to_float()  (line 516)
+      ._check_runtime_supported()  (line 519)
+      .finalize_weights()  (line 535)
+      .get_symm_buffer()  (line 573)
+      .forward()  (line 600)
+      ._run_mega_moe()  (line 626)
+  DeepseekV4MoE  (line 708)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/models/deepseek_v4.py
+      .__init__()  (line 709)
+      ._init_mega_moe_experts()  (line 798)
+      ._init_fused_moe_experts()  (line 824)
+      .forward()  (line 855)
+      ._forward_fused_moe()  (line 897)
+      .finalize_mega_moe_weights()  (line 918)
+  DeepseekV4Attention  (line 923)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/models/deepseek_v4.py
+      .__init__()  (line 924)
+      .forward()  (line 1083)
+  DeepseekV4DecoderLayer  (line 1092)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/models/deepseek_v4.py
+      .__init__()  (line 1093)
+      .hc_pre()  (line 1166)
+      .hc_post()  (line 1191)
+      .forward()  (line 1200)
+  DeepseekV4Model  (line 1225)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/models/deepseek_v4.py
+      .__init__()  (line 1226)
+      .embed_input_ids()  (line 1303)
+      .forward()  (line 1306)
+      .load_weights()  (line 1338)
+      .get_expert_mapping()  (line 1429)
+      .finalize_mega_moe_weights()  (line 1443)
+  DeepseekV4ForCausalLM  (line 1505)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/models/deepseek_v4.py
+      .__init__()  (line 1512)
+      .embed_input_ids()  (line 1531)
+      .compute_logits()  (line 1534)
+      .forward()  (line 1541)
+      .get_mtp_target_hidden_states()  (line 1553)
+      .load_weights()  (line 1559)
+      .get_expert_mapping()  (line 1565)
+
+=== Key classes/functions imported (used to build the model) ===
+  Callable  (from collections.abc)  ->  [external: collections.abc]
+  Iterable  (from collections.abc)  ->  [external: collections.abc]
+  F  (from F)  ->  [external: F]
+  VllmConfig  (from vllm.config)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/config/__init__.py
+  SiluAndMul  (from vllm.model_executor.layers.activation)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/activation.py
+      .__init__()  (line 130)
+      .forward_native()  (line 138)
+      .forward_cuda()  (line 143)
+      .forward_xpu()  (line 150)
+  SiluAndMulWithClamp  (from vllm.model_executor.layers.activation)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/activation.py
+      .__init__()  (line 169)
+      .forward_native()  (line 177)
+      .forward_cuda()  (line 183)
+      .forward_xpu()  (line 190)
+  DeepseekV4Indexer  (from vllm.model_executor.layers.deepseek_v4_attention)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/deepseek_v4_attention.py
+      .__init__()  (line 1055)
+      .forward()  (line 1152)
+  DeepseekV4MLAModules  (from vllm.model_executor.layers.deepseek_v4_attention)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/deepseek_v4_attention.py
+  DeepseekV4MultiHeadLatentAttentionWrapper  (from vllm.model_executor.layers.deepseek_v4_attention)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/deepseek_v4_attention.py
+      .__init__()  (line 202)
+      .forward()  (line 355)
+      .attention_impl()  (line 416)
+      ._fused_qnorm_rope_kv_insert()  (line 500)
+  FusedMoE  (from vllm.model_executor.layers.fused_moe)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/fused_moe/__init__.py
+  GateLinear  (from vllm.model_executor.layers.fused_moe)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/fused_moe/__init__.py
+  UnquantizedFusedMoEMethod  (from vllm.model_executor.layers.fused_moe.layer)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/fused_moe/layer.py
+  fused_topk_bias  (from vllm.model_executor.layers.fused_moe.router.fused_topk_bias_router)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/fused_moe/router/fused_topk_bias_router.py
+  RMSNorm  (from vllm.model_executor.layers.layernorm)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/layernorm.py
+      .__init__()  (line 112)
+      .forward_static()  (line 188)
+      .forward_native()  (line 233)
+      .forward_cuda()  (line 258)
+      .forward_hip()  (line 320)
+      .forward_xpu()  (line 341)
+      .extra_repr()  (line 348)
+  ColumnParallelLinear  (from vllm.model_executor.layers.linear)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/linear.py
+      .__init__()  (line 436)
+      ._maybe_allow_fp8_block_shape_mismatch()  (line 507)
+      .weight_loader()  (line 534)
+      .weight_loader_v2()  (line 571)
+      .forward()  (line 579)
+      .extra_repr()  (line 600)
+  MergedColumnParallelLinear  (from vllm.model_executor.layers.linear)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/linear.py
+      .__init__()  (line 635)
+      .validate_shard_id()  (line 667)
+      .weight_loader()  (line 694)
+      ._load_fused_module_from_checkpoint()  (line 870)
+      .weight_loader_v2()  (line 910)
+  RowParallelLinear  (from vllm.model_executor.layers.linear)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/linear.py
+      .__init__()  (line 1429)
+      .weight_loader()  (line 1499)
+      .weight_loader_v2()  (line 1534)
+      .forward()  (line 1543)
+      .extra_repr()  (line 1572)
+  LogitsProcessor  (from vllm.model_executor.layers.logits_processor)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/logits_processor.py
+      .__init__()  (line 30)
+      .forward()  (line 54)
+      ._gather_logits()  (line 75)
+      ._get_logits()  (line 89)
+      .get_top_tokens()  (line 106)
+      .extra_repr()  (line 158)
+  QuantizationConfig  (from vllm.model_executor.layers.quantization)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/quantization/__init__.py
+  QuantizationMethods  (from vllm.model_executor.layers.quantization)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/quantization/__init__.py
+  Fp8Config  (from vllm.model_executor.layers.quantization.fp8)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/quantization/fp8.py
+      .__init__()  (line 99)
+      .get_name()  (line 135)
+      .get_supported_act_dtypes()  (line 139)
+      .get_min_capability()  (line 143)
+      .get_config_filenames()  (line 147)
+      .apply_vllm_mapper()  (line 150)
+      .from_config()  (line 155)
+      .get_quant_method()  (line 172)
+      .get_cache_scale()  (line 206)
+  Mxfp4MoEMethod  (from vllm.model_executor.layers.quantization.mxfp4)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/quantization/mxfp4.py
+      .__init__()  (line 466)
+      .skip_forward_padding()  (line 483)
+      .maybe_roundup_sizes()  (line 488)
+      .create_weights()  (line 505)
+      ._setup_kernel()  (line 599)
+      .process_weights_after_loading()  (line 697)
+      .get_fused_moe_quant_config()  (line 710)
+      .select_gemm_impl()  (line 734)
+      .apply()  (line 744)
+      .apply_monolithic()  (line 767)
+  is_layer_skipped  (from vllm.model_executor.layers.quantization.utils.quant_utils)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/quantization/utils/quant_utils.py
+  get_rope  (from vllm.model_executor.layers.rotary_embedding)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/rotary_embedding/__init__.py
+  ParallelLMHead  (from vllm.model_executor.layers.vocab_parallel_embedding)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/vocab_parallel_embedding.py
+      .__init__()  (line 521)
+      .tie_weights()  (line 556)
+      .forward()  (line 565)
+  VocabParallelEmbedding  (from vllm.model_executor.layers.vocab_parallel_embedding)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/vocab_parallel_embedding.py
+      .__init__()  (line 233)
+      ._get_indices()  (line 321)
+      .get_sharded_to_full_mapping()  (line 358)
+      .weight_loader()  (line 423)
+      .forward()  (line 470)
+      .extra_repr()  (line 492)
+  default_weight_loader  (from vllm.model_executor.model_loader.weight_utils)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/model_loader/weight_utils.py
+  set_weight_attrs  (from vllm.model_executor.utils)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/utils.py
+  IntermediateTensors  (from vllm.sequence)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/sequence.py
+      .__init__()  (line 29)
+      .__getitem__()  (line 41)
+      .__setitem__()  (line 47)
+      .items()  (line 50)
+      .__len__()  (line 53)
+      .__eq__()  (line 56)
+      .__repr__()  (line 63)
+      .empty_like()  (line 67)
+  AuxStreamType  (from vllm.utils.multi_stream_utils)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/utils/multi_stream_utils.py
+  AutoWeightsLoader  (from utils)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/models/utils.py
+      .__init__()  (line 142)
+      ._groupby_prefix()  (line 161)
+      ._get_qualname()  (line 181)
+      ._can_skip()  (line 189)
+      ._can_ignore_unexpected()  (line 194)
+      ._load_param()  (line 199)
+      ._add_loadable_non_param_tensors()  (line 231)
+      ._load_module()  (line 261)
+      .load_weights()  (line 342)
+  WeightsMapper  (from utils)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/models/utils.py
+      .__or__()  (line 54)
+      ._map_name()  (line 62)
+      .apply()  (line 93)
+      .apply_list()  (line 102)
+      .apply_dict()  (line 109)
+  vllm.model_executor.layers.mhc  (from vllm.model_executor.layers.mhc)  ->  /home/csrikris/work/general-soln/deepseekv4-enablemnet/vllm/vllm/model_executor/layers/mhc.py
+
