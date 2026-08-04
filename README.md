@@ -7,6 +7,7 @@ This is one place where you can find my notes for my study. Some of these are us
 * [ResNet50](https://github.com/lcskrishna/knowledge-vault/tree/main/ResNet)
 * [AlexNet](https://github.com/lcskrishna/knowledge-vault/tree/main/AlexNet)
 * [DeepSeek-V3](https://github.com/lcskrishna/knowledge-vault/tree/main/deepseekv3)
+* [Kimi K3](https://github.com/lcskrishna/knowledge-vault/tree/main/kimi-k3) — SGLang implementation breakdown: hybrid KDA/MLA attention, latent MoE, attention-residual bank, fused collectives
 
 ## Tools
 

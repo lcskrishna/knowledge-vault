@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kimi K3 Architecture Design from SGLang</title>
+<style>
+:root{
+  --bg:#0f1216; --panel:#161b22; --panel2:#1c232c; --line:#2d3743;
+  --fg:#e6edf3; --dim:#9aa7b4; --accent:#58a6ff; --kda:#7ee787; --mla:#ffa657;
+  --moe:#d2a8ff; --comm:#79c0ff; --warn:#f85149; --ok:#3fb950;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+.wrap{max-width:1240px;margin:0 auto;padding:32px 24px 80px}
+h1{font-size:28px;margin:0 0 4px;letter-spacing:-.3px}
+h2{font-size:19px;margin:44px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+h3{font-size:15px;margin:26px 0 10px;color:var(--accent)}
+.sub{color:var(--dim);font-size:13px;margin-bottom:26px}
+code,.mono{font-family:var(--mono);font-size:12.5px}
+code{background:#22272e;padding:1px 5px;border-radius:4px;color:#c9d1d9}
+a{color:var(--accent)}
+
+/* ---- diagram primitives ---- */
+.canvas{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px;overflow-x:auto}
+.box{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 14px;text-align:center}
+.box .t{font-weight:600;font-size:13.5px}
+.box .d{color:var(--dim);font-size:11.5px;margin-top:3px;font-family:var(--mono)}
+.col{display:flex;flex-direction:column;align-items:center;gap:0}
+.row{display:flex;gap:14px;align-items:stretch;justify-content:center;flex-wrap:wrap}
+.arrow{width:2px;height:20px;background:var(--line);position:relative;margin:0 auto}
+.arrow::after{content:"";position:absolute;bottom:-1px;left:-4px;
+  border:5px solid transparent;border-top-color:var(--line)}
+.group{border:1px dashed var(--line);border-radius:10px;padding:16px 16px 14px;position:relative;margin:6px 0;width:100%}
+.group>.lbl{position:absolute;top:-9px;left:14px;background:var(--panel);
+  padding:0 8px;font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--dim)}
+.group.nested{background:#131920}
+.group.nested>.lbl{background:#131920}
+.k-kda{border-color:#2d5a38}.k-kda .t{color:var(--kda)}
+.k-mla{border-color:#5c422a}.k-mla .t{color:var(--mla)}
+.k-moe{border-color:#4a3a63}.k-moe .t{color:var(--moe)}
+.k-comm{border-color:#254468}.k-comm .t{color:var(--comm)}
+.tag{display:inline-block;font-size:10.5px;font-family:var(--mono);
+  border:1px solid var(--line);border-radius:20px;padding:1px 8px;color:var(--dim);margin:3px 3px 0 0}
+.xN{font-family:var(--mono);font-size:11px;color:var(--dim);
+  border:1px solid var(--line);border-radius:6px;padding:2px 8px;align-self:center}
+.side{display:flex;align-items:center;gap:12px;justify-content:center;width:100%}
+
+/* ---- tables ---- */
+table{width:100%;border-collapse:collapse;margin:12px 0 6px;font-size:13px}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:#1b222b;font-weight:600;font-size:12px;text-transform:uppercase;
+  letter-spacing:.4px;color:var(--dim)}
+tr:nth-child(even) td{background:#141a21}
+td code{font-size:11.5px}
+
+/* ---- callouts ---- */
+.note{border-left:3px solid var(--accent);background:#12202e;padding:11px 14px;
+  border-radius:0 6px 6px 0;margin:14px 0;font-size:13px}
+.note.warn{border-color:var(--warn);background:#2a1517}
+.note.ok{border-color:var(--ok);background:#132419}
+.note b{color:var(--fg)}
+pre{background:#0d1117;border:1px solid var(--line);border-radius:8px;
+  padding:13px 15px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.5}
+.pill{display:inline-block;background:#1b222b;border:1px solid var(--line);
+  border-radius:6px;padding:3px 9px;font-family:var(--mono);font-size:11.5px;margin:0 6px 6px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:860px){.grid2{grid-template-columns:1fr}}
+footer{margin-top:60px;padding-top:16px;border-top:1px solid var(--line);
+  color:var(--dim);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Kimi K3 Architecture Design from SGLang</h1>
+<div class="sub">
+Source of truth: <code>sgl-project/sglang</code> branch <b>kimi-k3</b> @ <code>36e31ee</code> (2026-08-04).
+The model is <b>not on <code>main</code></b> — only <code>python/sglang/kernels/ops/kimi_k3/</code> is.
+Companion markdown: <code>README.md</code>, <code>01</code>–<code>05</code> in this folder.
+</div>
+
+<!-- ============ 0. LAYMAN INTRO ============ -->
+<h2 style="margin-top:26px">0 · What this model is, in plain English</h2>
+
+<div class="note" style="border-color:var(--ok);background:#132419;font-size:13.5px">
+<b>The 30-second version.</b> Kimi K3 is a large multimodal reasoning model. Its defining trick is a
+<b>hybrid memory design</b>: about three-quarters of its layers keep a small fixed-size running summary
+of the conversation instead of a full transcript, so long contexts stay cheap, while the remaining
+quarter does exact lookback to keep quality high. Its thinking compute is a <b>mixture of 896 experts of
+which only 16 run per word</b>, and it compresses the data in half before shipping it to those experts to
+halve the network cost. It also keeps a small <b>"scrapbook" of earlier internal states</b> that every
+layer can blend from — an unusual feature most models don't have. <b>SGLang</b> is the engine that serves
+it, and most of the engineering there is about fusing operations together so data gets moved once instead
+of several times.
+</div>
+
+<p style="font-size:13.5px">
+<b>Kimi K3</b> is a large language model from Moonshot AI — the same category of thing as GPT, Claude or
+DeepSeek. You give it text or images, it produces text. <b>SGLang</b> is the <i>serving engine</i>: the
+software that actually runs the model on GPUs fast enough to be useful. The model is the recipe; SGLang
+is the kitchen. Same recipe, a good kitchen serves a hundred covers an hour instead of five.
+</p>
+
+<h3>The one thing to understand: it's a stack of 93 layers</h3>
+<p style="font-size:13.5px">Text comes in at the bottom, passes through 93 near-identical stages, and a
+prediction comes out the top. Each stage does two jobs — <b>attention</b> ("which earlier words matter
+for the word I'm writing now?", which is how the model knows what "it" refers to three paragraphs back)
+and a <b>feed-forward step</b> (the actual thinking about the word, once attention has gathered the
+context). Nearly every modern LLM is that pattern. What makes K3 distinctive is <i>how</i> it does each
+of the two, plus one genuinely unusual thing about how information flows between layers.</p>
+
+<h3>What the architecture contains</h3>
+
+<div class="group k-kda" style="margin:14px 0">
+<span class="lbl" style="background:var(--bg)">① Two kinds of attention, mixed together — 69 + 24</span>
+<p style="font-size:13.5px;margin:2px 0 10px">Standard attention has an expensive habit: to answer about
+word 100,000 it re-examines a stored record of all 99,999 earlier words. That record — the
+<b>KV cache</b> — grows without limit as the conversation lengthens. This is <i>the</i> central cost
+problem in serving LLMs. K3 splits the difference:</p>
+<div class="row" style="width:100%">
+  <div class="box k-kda" style="flex:1;text-align:left;padding:12px 15px">
+    <div class="t">69 layers — KDA, the "running notes"</div>
+    <div style="font-size:12.5px;color:var(--dim);margin-top:6px">
+    <b style="color:var(--fg)">Recurrent.</b> Instead of a record of every past word, each layer keeps a
+    <b style="color:var(--fg)">fixed-size summary</b> it updates as it reads — notes rather than a full
+    transcript. Same size whether the conversation is 1,000 words or a million. Cheap and constant, but
+    lossy.
+    <br><br><b style="color:var(--fg)">The "delta" trick:</b> when a new word arrives the layer doesn't
+    blindly append it. It checks what the notes <i>already predict</i> about that word and writes down
+    only the part it got wrong. Correcting your notes rather than re-copying the page.</div>
+  </div>
+  <div class="box k-mla" style="flex:1;text-align:left;padding:12px 15px">
+    <div class="t">24 layers — MLA, the "full transcript"</div>
+    <div style="font-size:12.5px;color:var(--dim);margin-top:6px">
+    <b style="color:var(--fg)">Exact.</b> Real attention that does look back at everything — but stores
+    each past word <b style="color:var(--fg)">compressed</b> rather than at full size. This is the design
+    DeepSeek popularised; K3 borrows it essentially unchanged.
+    <br><br>Precise but expensive: these are the only layers whose memory grows with conversation
+    length.</div>
+  </div>
+</div>
+<p style="font-size:13.5px;margin:12px 0 0"><b>Why mix them?</b> Recurrent layers are cheap but
+forgetful; exact layers are precise but expensive. Roughly three-quarters cheap and one-quarter exact
+keeps quality up while making long contexts affordable — only 24 of 93 layers pay the growing-memory
+cost. The practical consequence: K3's long-context footprint is dominated by a <i>fixed</i> per-user
+allocation rather than a per-word one, and operators tune the balance between the two pools with one
+knob, <code>--mamba-full-memory-ratio</code>.</p>
+</div>
+
+<div class="group k-moe" style="margin:14px 0">
+<span class="lbl" style="background:var(--bg)">② A mixture of experts — 896 specialists, 17 consulted per word</span>
+<p style="font-size:13.5px;margin:2px 0 0">The feed-forward half of each layer isn't one big block —
+it's <b>896 smaller ones ("experts")</b> plus one generalist that always participates. For each
+individual word a small router picks the <b>16 most relevant experts</b>, and only those run. The other
+880 sit idle. That's why the model can be enormous in total size yet fast in practice: a large panel of
+consultants where you only ever call in the handful you need, and different words wake up different
+experts.
+<br><br>K3 adds an unusual wrinkle. Before consulting the experts it <b>shrinks the data to half
+size</b> (7168 numbers per word → 3584), runs the experts in that compressed space, then expands back.
+Since the experts live on <i>different GPUs</i>, the data must be shipped across the network to reach
+them — and shrinking it first <b>halves the network traffic</b>. In a big deployment that network hop is
+often the slowest step in the entire layer.</p>
+</div>
+
+<div class="group k-comm" style="margin:14px 0">
+<span class="lbl" style="background:var(--bg)">③ The attention-residual bank — K3's most unusual feature</span>
+<p style="font-size:13.5px;margin:2px 0 0">In an ordinary model, information passes from layer 1 to 2 to
+3 in a single stream, each layer adding its contribution. Later layers see only the accumulated total;
+the intermediate states are gone.
+<br><br>K3 keeps a <b>scrapbook</b>. Every few layers it saves a snapshot of the current state (up to 8
+snapshots). Then at each layer, instead of just reading the latest state, it looks at <i>all</i> the
+saved snapshots plus the current one and <b>learns how much weight to give each</b>. A layer can decide
+"for this word, the state as of layer 20 is more useful than the state right now" and lean on it.
+Version history with the ability to blend versions, rather than a single overwritten document.
+<br><br>This is the feature with no equivalent in DeepSeek-V3 or most other open models — and it's what
+the largest share of the custom kernel work in this SGLang branch exists to make fast.</p>
+</div>
+
+<div class="group k-mla" style="margin:14px 0">
+<span class="lbl" style="background:var(--bg)">④ No position numbers in the exact-attention layers</span>
+<p style="font-size:13.5px;margin:2px 0 0">Most models explicitly tag each word with its position ("this
+is word 47"). K3's 24 MLA layers <b>don't do this at all</b>. Position information reaches them
+implicitly via the 69 recurrent layers, which read strictly in order and so inherently know where they
+are. A quirk with real consequences for engineers: a lot of highly-optimised attention code assumes those
+position tags exist and fuses their computation into the main kernel. For K3 there is nothing to
+fuse.</p>
+</div>
+
+<div class="group" style="margin:14px 0">
+<span class="lbl" style="background:var(--bg)">⑤ Vision</span>
+<p style="font-size:13.5px;margin:2px 0 0">Images go through a separate <b>vision tower</b> that converts
+a picture into the same kind of numbers the text layers consume, after which the model treats image and
+text content uniformly. K3 handles transparent images by compositing them onto a configurable background
+rather than mangling the transparency — small, but a real improvement over the previous generation.</p>
+</div>
+
+<h3>What SGLang does to make it fast</h3>
+<div class="note"><b>If you remember one idea from the engineering side, make it this one:</b> at the
+scale these models run, the bottleneck is usually <b>moving data, not computing on it</b>. GPUs finish
+the arithmetic and then wait — for memory, or for the network between GPUs. So nearly all the
+optimisation work in this branch is a variation on a single theme: <b>stop moving things twice.</b></div>
+<table>
+<tr><th style="width:22%">Technique</th><th>The plain version</th></tr>
+<tr><td><b>Kernel fusion</b></td><td>Two operations that ran back-to-back get merged into one, so the
+intermediate result never leaves the chip. K3 does this a dozen different ways — even fusing a
+<i>network</i> operation with the math that follows it.</td></tr>
+<tr><td><b>Merged weights</b></td><td>Three separate small multiplications that all read the same input
+become one bigger multiplication. Read the input once instead of three times.</td></tr>
+<tr><td><b>Overlapping</b></td><td>While the GPU waits on the network, give it unrelated math to do. K3
+runs the generalist expert during the network wait for the specialists — worth about 4–5% throughput,
+essentially for free.</td></tr>
+<tr><td><b>Splitting across GPUs</b></td><td>Several different axes: split the layers, the experts, the
+attention heads, or the words. Each has different traffic costs, and the right combination depends on the
+hardware.</td></tr>
+</table>
+<div class="note warn">Most of this only runs on <b>NVIDIA Blackwell</b> (B200/B300/GB200/GB300), which
+has capabilities older generations lack. On NVIDIA Hopper (H100/H200) and on AMD the model still runs
+correctly — it just falls back to generic, slower paths for these specific optimisations.</div>
+
+<h3>Numbers worth remembering</h3>
+<div class="row" style="justify-content:flex-start;gap:10px">
+  <div class="box" style="min-width:150px"><div class="t">93 layers</div><div class="d">69 recurrent + 24 exact</div></div>
+  <div class="box" style="min-width:150px"><div class="t">896 + 1 experts</div><div class="d">16 consulted per word</div></div>
+  <div class="box" style="min-width:150px"><div class="t">7168 → 3584</div><div class="d">halved for the expert hop</div></div>
+  <div class="box" style="min-width:150px"><div class="t">163,840</div><div class="d">vocabulary tokens</div></div>
+  <div class="box" style="min-width:150px"><div class="t">≤ 8 snapshots</div><div class="d">in the residual bank</div></div>
+  <div class="box" style="min-width:150px"><div class="t">8–32 GPUs</div><div class="d">typical deployment, 1–4 machines</div></div>
+</div>
+
+<h2 style="margin-top:44px">Reference — the precise version</h2>
+<p class="sub" style="margin-bottom:14px">Everything from here down is the engineering detail behind the
+five points above.</p>
+
+<span class="pill">93 layers = 69 KDA + 24 MLA</span>
+<span class="pill">hidden 7168</span>
+<span class="pill">latent MoE 3584</span>
+<span class="pill">896 routed + 1 shared</span>
+<span class="pill">top-16</span>
+<span class="pill">SiTU β=4.0 / 25.0</span>
+<span class="pill">vocab 163840</span>
+
+<!-- ============ 1. MODEL ============ -->
+<h2>1 · KimiK3LinearModel — top level</h2>
+<div class="canvas">
+<div class="col" style="min-width:640px">
+
+  <div class="row" style="width:100%">
+    <div class="box" style="flex:1">
+      <div class="t">input_ids → VocabParallelEmbedding</div>
+      <div class="d">embed_tokens · vocab 163840 → [T, 7168]</div>
+    </div>
+    <div class="box k-comm" style="flex:1">
+      <div class="t">pixel_values → MoonViT3d tower</div>
+      <div class="d">patch 14 · 27L · h1024 · merge 2×2 · patchmergerv2 → 7168</div>
+      <div><span class="tag">image-wise DP across TP ranks</span><span class="tag">CUDA-IPC handoff</span></div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+  <div class="box" style="width:100%">
+    <div class="t">scatter image embeds into <code>&lt;|media_*|&gt;</code> placeholders</div>
+    <div class="d">placeholder id 163605 · <code>&lt;|media_begin|&gt;image WxH&lt;|media_content|&gt;…&lt;|media_end|&gt;</code></div>
+  </div>
+
+  <div class="arrow"></div>
+  <div class="group k-comm">
+    <span class="lbl">Attention-Residual bank — allocated once per forward</span>
+    <div class="box" style="width:100%;background:#131920">
+      <div class="t">AttnResidual · bank [T, NB, 7168]</div>
+      <div class="d">NB = ceil(num_layers / attn_res_block_size) &nbsp;·&nbsp; ≤ 8 snapshots &nbsp;·&nbsp; _MAX_ROWS = 16</div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+  <div class="side">
+    <div class="box" style="flex:1;max-width:520px">
+      <div class="t">KimiK3DecoderLayer</div>
+      <div class="d">see §2 — KDA or MLA by <code>config.is_kda_layer(i)</code></div>
+    </div>
+    <div class="xN">× 93</div>
+  </div>
+
+  <div class="arrow"></div>
+  <div class="box" style="width:100%">
+    <div class="t">final aggregation → RMSNorm</div>
+    <div class="d">output_attn_res_proj / output_attn_res_norm, then model norm</div>
+  </div>
+
+  <div class="arrow"></div>
+  <div class="box" style="width:100%"><div class="t">LMHead / LogitsProcessor</div></div>
+
+</div>
+</div>
+
+<div class="note"><b>Not a DSV3 clone.</b> Two structural departures: (1) there is <b>no
+<code>LayerCommunicator</code></b> — K3 hand-rolls TP/DP comm because the attention-residual stream
+and the SP-MoE token shard must be threaded through the same reductions; (2) the <b>residual add is
+deferred one layer</b> — <code>hidden_states</code> on the wire between layers is the un-added MLP
+delta, and the add happens inside the next layer's Aggregation 1 kernel.</div>
+
+<!-- ============ 2. DECODER LAYER ============ -->
+<h2>2 · KimiK3DecoderLayer <span class="mono" style="font-size:12px;color:var(--dim)">— kimi_k3.py:1876, _forward_attn_residual:2205</span></h2>
+<div class="canvas">
+<div class="col" style="min-width:640px">
+
+  <div class="box" style="width:100%;border-style:dashed">
+    <div class="d">in: (hidden_states = previous layer's <i>un-added</i> MLP delta, prefix_sum)</div>
+  </div>
+  <div class="arrow"></div>
+
+  <div class="group k-comm">
+    <span class="lbl">Aggregation 1 — attention side</span>
+    <pre style="margin:0">prefix = prefix_sum + hidden_states                    # the deferred add lands here
+rows   = [ bank[0 .. nvb-1] , prefix ]                 # [T, nvb+1, 7168]
+s_j    = &lt;RMSNorm(row_j), self_attention_res_proj.w&gt;   # scalar score per row
+mixed  = Σ_j softmax(s)_j · row_j
+x      = input_layernorm(mixed)                        # epilogue RMSNorm, fused
+if layer_idx % attn_res_block_size == 0: bank[nvb++] = prefix   # write_prefix=True, in-kernel</pre>
+  </div>
+  <div class="arrow"></div>
+
+  <div class="row" style="width:100%">
+    <div class="group nested k-kda" style="flex:1">
+      <span class="lbl">69 × KDA</span>
+      <div class="box k-kda" style="width:100%">
+        <div class="t">KimiK3DeltaAttention</div>
+        <div class="d">gated delta rule · 96 heads × 128 · conv k=4</div>
+        <div><span class="tag">S[128×128] fp32</span><span class="tag">full-rank gate</span></div>
+      </div>
+    </div>
+    <div class="group nested k-mla" style="flex:1">
+      <span class="lbl">24 × MLA</span>
+      <div class="box k-mla" style="width:100%">
+        <div class="t">KimiK3MLAAttention</div>
+        <div class="d">DeepseekV2AttentionMLA + <code>skip_rope=True</code></div>
+        <div><span class="tag">NoPE</span><span class="tag">output gate</span><span class="tag">DCP-shardable KV</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="arrow"></div>
+
+  <div class="group k-comm">
+    <span class="lbl">Complete deferred o_proj reduce</span>
+    <div class="row" style="width:100%">
+      <div class="box k-comm" style="flex:1"><div class="t">SP-MoE</div>
+        <div class="d">reduce-scatter → this rank's token shard</div></div>
+      <div class="box k-comm" style="flex:1"><div class="t">AR fusion</div>
+        <div class="d">k3_ar_fusion.all_reduce(x, prefix_sum) — folds the add</div></div>
+      <div class="box k-comm" style="flex:1"><div class="t">otherwise</div>
+        <div class="d">o_proj already all-reduced itself</div></div>
+    </div>
+  </div>
+  <div class="arrow"></div>
+
+  <div class="group k-comm">
+    <span class="lbl">Aggregation 2 — MLP side</span>
+    <div class="box" style="width:100%;background:#131920">
+      <div class="d">same math as Aggregation 1, with <code>mlp_res_proj</code> / <code>mlp_res_norm</code>;
+      epilogue norm = <code>post_attention_layernorm</code></div>
+    </div>
+  </div>
+  <div class="arrow"></div>
+
+  <div class="row" style="width:100%">
+    <div class="box" style="flex:1"><div class="t">dense KimiK3MLP</div>
+      <div class="d">layer_idx &lt; first_k_dense_replace · adds prefix after down_proj</div></div>
+    <div class="box k-moe" style="flex:1"><div class="t">KimiK3MoE (Latent MoE)</div>
+      <div class="d">see §3 · folds prefix into the 3-way tail add</div></div>
+  </div>
+  <div class="arrow"></div>
+
+  <div class="box" style="width:100%;border-style:dashed">
+    <div class="d">out: (MLP delta, prefix_sum) — add deferred into the next Aggregation 1</div>
+  </div>
+
+</div>
+</div>
+
+<h3>Attention-residual kernel paths <span class="mono" style="color:var(--dim);font-weight:400">— attn_residual.py:313</span></h3>
+<table>
+<tr><th>Path</th><th>When</th><th>What</th></tr>
+<tr><td><code>fast</code></td><td>SM100+ <b>and</b> H == 7168</td>
+<td>Warp-specialized TMA kernel: <code>cp.async.bulk</code> producer + online-softmax consumers over a
+double-buffered chunk ring; output RMSNorm fused; one persistent CTA per SM; launch config tuned per
+<code>nvb</code>. Can snapshot the bank row in-kernel at zero extra reads.</td></tr>
+<tr><td><code>fused</code></td><td>everywhere else</td><td>2-kernel Triton pipeline (<code>_score_kernel</code> + mix), full H-parallelism</td></tr>
+<tr><td><code>torch</code></td><td>H % 1024 ≠ 0 / tests</td><td>eager reference (<code>aggregate_stream_torch</code>, lines 247-265)</td></tr>
+</table>
+<div class="note">The score pass is a <i>scalar</i> projection per row, so the whole mechanism is
+memory-bound on the bank — hence the TMA/online-softmax treatment and the SP variants
+(<code>forward_sp_all_gather</code>, <code>forward_sp_reduce_scatter</code>) that fuse the aggregation
+into the collective rather than running them back-to-back.</div>
+
+<!-- ============ 3. MoE ============ -->
+<h2>3 · KimiK3MoE — the latent MoE <span class="mono" style="font-size:12px;color:var(--dim)">— kimi_k3.py:354-1205</span></h2>
+<div class="canvas">
+<div class="col" style="min-width:640px">
+
+  <div class="box" style="width:100%"><div class="t">hidden_states [T, 7168]</div></div>
+  <div class="arrow"></div>
+
+  <div class="group k-moe">
+    <span class="lbl">Fused front — one GEMM, three consumers (<code>_merge_front_weights</code>:593)</span>
+    <div class="row" style="width:100%">
+      <div class="box k-moe" style="flex:1"><div class="t">shared gate_up</div>
+        <div class="d">7168 space · tp1-replicated under EP</div></div>
+      <div class="box k-moe" style="flex:1"><div class="t">MoEGate</div>
+        <div class="d">fp32 logits · sigmoid · e_score_correction_bias</div></div>
+      <div class="box k-moe" style="flex:1"><div class="t">routed_expert_down_proj</div>
+        <div class="d">7168 → 3584 · ReplicatedLinear bf16</div></div>
+    </div>
+    <div class="d" style="margin-top:8px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:11.5px">
+      merged into one [H, gu+E+latent] GEMM — bf16/fp16 only; quantized checkpoints keep the unfused path
+    </div>
+  </div>
+  <div class="arrow"></div>
+
+  <div class="row" style="width:100%;align-items:flex-start">
+    <div class="col" style="flex:1">
+      <div class="box k-moe" style="width:100%"><div class="t">TopK · grouped top-16</div>
+        <div class="d">num_expert_group / topk_group · RoutingMethodType.DeepSeekV3</div></div>
+      <div class="arrow"></div>
+      <div class="box" style="width:100%"><div class="t">[optional] routed_expert_norm</div>
+        <div class="d">RMSNorm 3584 · latent_moe_use_norm</div></div>
+      <div class="arrow"></div>
+      <div class="group nested k-comm" style="width:100%">
+        <span class="lbl">Expert a2a + expert GEMMs (3584 space)</span>
+        <div class="row" style="width:100%">
+          <div class="box k-comm" style="flex:1"><div class="t">MegaMoE</div>
+            <div class="d">deep_gemm fused a2a+GEMM</div></div>
+          <div class="box k-comm" style="flex:1"><div class="t">DeepEP</div>
+            <div class="d">dispatch / combine (patched)</div></div>
+          <div class="box k-comm" style="flex:1"><div class="t">plain TP</div>
+            <div class="d">fused MoE + AR</div></div>
+        </div>
+        <div class="d" style="margin-top:8px;text-align:center;font-family:var(--mono);font-size:11.5px;color:var(--dim)">
+          per expert: w1/w3 → SiTU → w2
+        </div>
+      </div>
+      <div class="arrow"></div>
+      <div class="box k-moe" style="width:100%"><div class="t">latent [T, 3584] (reduced)</div></div>
+      <div class="arrow"></div>
+      <div class="box k-moe" style="width:100%"><div class="t">routed_expert_up_proj</div>
+        <div class="d">3584 → 7168 · ReplicatedLinear → already fully reduced</div></div>
+    </div>
+
+    <div class="col" style="flex:.85">
+      <div class="box k-moe" style="width:100%"><div class="t">shared_experts (KimiK3MLP)</div>
+        <div class="d">full 7168 space · SiTU · tp1-replicated under EP a2a</div>
+        <div><span class="tag">SBO: issued on alt_stream 0</span></div></div>
+      <div class="box" style="width:100%;margin-top:12px;border-style:dashed;text-align:left">
+        <div class="d" style="text-align:left">
+        <b style="color:var(--fg)">SBO (single batch overlap)</b> — the shared expert reads a fixed
+        ~264 MB/layer/rank bf16 slab the routed path never touches, while the routed path is a2a-latency
+        bound in decode with HBM idle. Issued <i>after</i> the front GEMMs so it overlaps the a2a rather
+        than stealing bandwidth. Measured on 2×4 GB300 (TP8/EP8 MegaMoE + SP-MoE):
+        <b style="color:var(--ok)">+4–5% output tok/s, −5% ITL</b> over bs 1–32, GSM8K unchanged —
+        so it is unconditional, no flag.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+  <div class="box k-moe" style="width:100%">
+    <div class="t">_add3(routed_out, shared_out, prefix_sum)</div>
+    <div class="d">the attention-residual prefix is folded in here</div>
+  </div>
+
+</div>
+</div>
+
+<div class="grid2">
+<div>
+<h3>Why latent MoE matters operationally</h3>
+<p style="font-size:13px;color:var(--dim);margin-top:0">The a2a payload is <b style="color:var(--fg)">halved</b>
+(3584 vs 7168 per token) — which is exactly why the DeepEP patch must add <code>case 3584</code> to
+<code>SWITCH_HIDDEN</code>; stock DeepEP has no template instantiation for that width. It also means the
+down/up projections are <code>ReplicatedLinear</code>, so the routed output is already fully reduced when
+it leaves <code>routed_expert_up_proj</code>.</p>
+<h3>SiTU <span class="mono" style="color:var(--dim);font-weight:400">— activation.py:184-212</span></h3>
+<pre>gate = beta * tanh(gate/beta) * sigmoid(gate)   # beta = 4.0
+up   = linear_beta * tanh(up/linear_beta)       # 25.0, soft clip
+out  = gate * up</pre>
+<p style="font-size:12.5px;color:var(--dim)">The constants are <b>asserted, not read</b> on the MegaMoE
+path (<code>kimi_k3.py:465-471</code>) — DeepGEMM bakes them in, so a checkpoint with different betas is
+rejected at init rather than silently mis-activated. MegaMoE selects SiTU by a sentinel
+<code>activation_clamp = 2^-5</code>.</p>
+</div>
+<div>
+<h3>DeepEP K3 patches <span class="mono" style="color:var(--dim);font-weight:400">— apply_deepep_k3_patch.sh</span></h3>
+<table style="font-size:12.5px">
+<tr><th>Patch</th><th>Reason</th></tr>
+<tr><td><code>internode_ll.cu</code>: kNumMaxTopK 11→16</td><td>K3 routes top-16</td></tr>
+<tr><td><code>launch.cuh</code>: <code>case 3584</code></td><td>latent-MoE dispatch width</td></tr>
+<tr><td><code>internode.cu</code>: field-wise SourceMeta</td><td>unaligned 64-bit access for packed FP8 scales at EP&gt;8</td></tr>
+<tr><td><code>configs.cuh</code>: timeout 100s→1000s</td><td>cross-node init headroom</td></tr>
+<tr><td><code>setup.py</code>: add cccl include</td><td>CUDA 13 header relocation</td></tr>
+</table>
+<p style="font-size:12.5px;color:var(--dim)">Rebuilt for <code>sm_90 / sm_100a / sm_103a</code>.
+An unpatched DeepEP fails at top-k 16 / hidden 3584.</p>
+</div>
+</div>
+
+<h3>SP-MoE — sequence-parallel MoE region <span class="mono" style="color:var(--dim);font-weight:400">— kimi_k3.py:1904-1926</span></h3>
+<div class="note">When an EP a2a backend is active <b>and</b> <code>attn_tp &gt; 1</code>, the layer flips
+<code>o_proj.reduce_results</code> off and completes the attention reduction as a <b>reduce-scatter</b>.
+The entire MoE region — aggregation 2, norms, gate, latent projections, tp1 shared experts, a2a dispatch —
+then runs on <code>1/attn_tp</code> of the rows, all-gathered back after the tail add.
+<br><br><b>The accounting:</b> RS + AG moves the same bytes the o_proj all-reduce did; the shared-expert
+all-reduce disappears via tp1 weights; each rank dispatches only its shard, killing the
+<code>attn_tp</code>-fold dispatch redundancy. Net: <b>strictly less communication, and the MoE front
+compute divided by attn_tp</b>. Dense layers are excluded — a column-parallel MLP has no per-token
+decomposition that survives a token shard.</div>
+
+<!-- ============ 4. KDA ============ -->
+<h2>4 · KDA — Kimi Delta Attention <span class="mono" style="font-size:12px;color:var(--dim)">— kimi_k3.py:1206-1700</span></h2>
+
+<div class="grid2">
+<div>
+<h3>Projections</h3>
+<pre>hidden_states [T, 7168]
+ ├ q,k,v   head_dim*num_heads each   (fused_qkvg_proj)
+ ├ beta b  num_heads scalars/token   (b_proj)
+ ├ forget  f_a [H→128] → f_b [128→heads*128]   low-rank
+ └ gate g  full-rank g_proj [H→heads*128]      ← K3
+   + qkv_conv1d [3*proj, k=4] fp32
+     A_log [1,1,heads,1] fp32   dt_bias fp32</pre>
+<h3>The recurrence</h3>
+<pre>q,k,v = short_conv(q,k,v)          # 4-tap causal depthwise
+beta  = sigmoid(b)                 # per-head, (0,1)
+decay = exp(-softplus(f+dt_bias) * exp(A_log))
+                                   # lower-bounded at -5.0
+S = decay * S                      # gated forget
+S = S + beta * (v - S @ k) k^T     # delta correction
+o = S @ q
+o = FusedRMSNormGated(o, g)        # o * rms(o) * sigmoid(g)
+out = o_proj(o)</pre>
+<p style="font-size:12.5px;color:var(--dim)">The delta term <code>(v − S k)</code> writes only the part
+of <code>v</code> the state does not already predict — that is what gives the family its
+associative-recall behaviour.</p>
+</div>
+<div>
+<h3>Three construction variants <span class="mono" style="color:var(--dim);font-weight:400">— 1263-1412</span></h3>
+<table style="font-size:12.5px">
+<tr><th>Variant</th><th>Condition</th><th>Layout</th></tr>
+<tr><td>fused q/k/v/g</td><td>attn_tp == tp, full-rank gate</td>
+<td>one <code>MergedColumnParallelLinear</code> over [q,k,v,g] (6144/rank at TP8). <code>b</code> and
+<code>f_a</code> deliberately stay separate — folding them in skews the output dim to 6284 and degrades
+GEMM kernel selection</td></tr>
+<tr><td>fused q/k/v/b + f/g</td><td>attn_tp == tp, low-rank gate</td><td>MergedColumnParallelRepeatedLinear + ColumnParallelBatchedLinear</td></tr>
+<tr><td>unfused</td><td>otherwise</td><td>separate qkv / b / f_a,f_b / g_a,g_b</td></tr>
+</table>
+<h3>State cache</h3>
+<table style="font-size:12.5px">
+<tr><td>conv state</td><td><code>[3, channels]</code> bf16 — sliced on axis 1, which disables dedup</td></tr>
+<tr><td>temporal state</td><td><code>[heads/attn_tp, 128, 128]</code> fp32</td></tr>
+</table>
+<pre>r = (S + D) * state_bytes / (L * per_token_kv_bytes)
+state_bytes  = 69 * ((96/attnTp)*128*128*ssmBytes
+                     + 3*3*(96/attnTp)*128*2)
+kv_bytes/tok = 24 * (512 + 64) * kvBytes</pre>
+<div class="note">The state term is <b>per-GPU and never DCP-sharded</b>; the KV term <i>is</i>
+DCP-shardable. That asymmetry is why DCP changes the optimal
+<code>--mamba-full-memory-ratio</code>.</div>
+</div>
+</div>
+
+<h3>Prefill vs decode</h3>
+<table>
+<tr><th>Phase</th><th>Kernel</th><th>Note</th></tr>
+<tr><td>Extend / prefill</td><td>chunked scan — <code>kda_nvidia_prefill/{chunk_fwd, fuse_kernel123_persistent, Akk_inverse_lower_triangle_bf16}.py</code></td><td><code>beta</code> pre-sigmoided host-side; forget_gate unflattened to [.., heads, head_dim]</td></tr>
+<tr><td>Decode / target-verify</td><td>fused recurrent CuTe — <code>kda_fused_decode.py</code>, <code>kimi_k3/kda_decode_mtp.py</code></td><td><code>beta</code> sigmoided in-kernel</td></tr>
+</table>
+<div class="note"><b>Attempt-and-verify fusion protocol</b> (<code>kimi_k3.py:1669-1694</code>) — the module
+stashes the gate on the attention object (<code>attn._k3_onorm_gate</code>) and lets the kernel fold
+<code>FusedRMSNormGated</code> into the recurrence epilogue. If the backend leaves
+<code>_k3_onorm_consumed</code> false (env off, or shape not covered), the module applies
+<code>o_norm</code> itself. This pattern recurs throughout K3: offer a fusion, check whether it was
+taken, otherwise run the generic path.</div>
+
+<h3>DSPARK — speculative decoding on a recurrent model</h3>
+<div class="note"><code>kda_decode_mtp.py</code> (~48 KB CuTe DSL) implements
+<code>fused_kda_decode_mtp_dspark</code>: dense contract <code>T = num_requests × (1 + num_spec)</code>
+(<code>--speculative-dspark-block-size</code>, default 7); optional <b>ReplaySSM</b> ring buffers
+(<code>ring_rawv/rawk/g/beta</code>) so the accepted prefix can be exactly re-folded into the state at
+commit time (<code>--enable-linear-replayssm-spec</code>); phase 1 conv precompute, phase 2 state tile
+loop in streaming or resident mode.
+<br><br>Recurrent state + speculation is the hard part of a hybrid model — you cannot just discard
+rejected KV rows, you have to roll the SSM state back. ReplaySSM is that mechanism.</div>
+
+<!-- ============ 5. MLA ============ -->
+<h2>5 · MLA layers <span class="mono" style="font-size:12px;color:var(--dim)">— kimi_k3.py:1703-1873</span></h2>
+<p style="font-size:13px;color:var(--dim)"><code>KimiK3MLAAttention(DeepseekV2AttentionMLA)</code> reuses
+DSV2/V3 MLA wholesale — q_lora_rank, kv_lora_rank, qk_nope/rope_head_dim, v_head_dim, MQA radix attention
+over the latent, absorb paths, DCP — and changes <b>exactly two things</b>.</p>
+
+<div class="grid2">
+<div>
+<h3>① NoPE</h3>
+<pre>super().__init__(..., skip_rope=True, ...)   # 1730</pre>
+<p style="font-size:12.5px;color:var(--dim)"><code>skip_rope=True</code> sets
+<code>self.rotary_emb = None</code> (<code>deepseek_v2.py:1882-1896</code>). <b>The MLA layers apply no
+rotary embedding.</b> The 64 <code>qk_rope_head_dim</code> channels still exist and are still cached
+(KV cost is <code>(512+64)</code>/token/layer) but carry no positional rotation. Positional information
+comes from the KDA layers' causal conv + decay. Exposed as <code>mla_use_nope</code>.</p>
+<div class="note warn">For anyone porting attention kernels: the MLA layers are position-agnostic, so
+<b>RoPE-fused MLA kernels have nothing to fuse</b>.</div>
+</div>
+<div>
+<h3>② Output gate</h3>
+<pre>x = x * sigmoid(g_proj(hidden_states))</pre>
+<p style="font-size:12.5px;color:var(--dim)"><code>g_proj: [H → num_heads*v_head_dim]</code> sharded on
+attn_tp. Implemented by wrapping <code>o_proj.forward</code> at the <i>instance</i> level
+(<code>1810-1836</code>) because <code>o_proj</code> is called from deep inside the inherited MLA forward
+cores. The fused kernel <code>mla_output_gate.py</code> is documented to match the unfused pair
+<b>bit-for-bit</b> (double rounding preserved); <code>covered(x, gate)</code> gates its use.
+<br><br>The gate GEMM rides an alt stream (<code>_precompute_output_gate</code>, 1838-1858) — but only
+under CUDA-graph capture, only outside a breakable graph, and only to 128 tokens on Blackwell / 64
+elsewhere.</p>
+</div>
+</div>
+
+<div class="note warn"><b>Attention-TP correctness.</b> K3 has no <code>LayerCommunicator</code>, so
+<code>o_proj</code> must reduce within the <b>attention-TP group</b> itself
+(<code>use_dp_attention_reduce = True</code>, <code>kimi_k3.py:1771-1776</code>, and <code>1474-1484</code>
+for KDA). The default full-TP collective would be the wrong group at <code>attn_tp &gt; 1</code> and would
+<b>deadlock against idle DP ranks</b>. Worth knowing if you are debugging a hang in a DP-attention K3
+deployment.</div>
+
+<!-- ============ 6. KERNELS ============ -->
+<h2>6 · The <code>kimi_k3</code> kernel package &amp; fused collectives</h2>
+<p style="font-size:13px;color:var(--dim)">At decode, K3's per-layer work is a chain of skinny
+memory-bound GEMVs separated by collectives — so nearly every kernel here fuses a GEMM with the
+collective that follows it, or a collective with the norm that follows it.</p>
+
+<table>
+<tr><th>File</th><th>Fuses</th><th>Selection gate</th><th>Replaces</th></tr>
+<tr><td><code>activation.py</code></td><td>SiTU</td><td>always (K3 default activation)</td><td>SiLU + scalar mul</td></tr>
+<tr><td><code>moe.py</code></td><td>SiTU + masked post-quant</td><td>mxfp8 + masked dispatch, SM100+ PDL</td><td>SiTU then separate quant</td></tr>
+<tr><td><code>mla_output_gate.py</code></td><td><code>x * sigmoid(gate)</code></td><td><code>covered(x, gate)</code></td><td>mul + sigmoid (bit-exact)</td></tr>
+<tr><td><code>attn_res.py</code></td><td>score → online softmax → mix → RMSNorm, ± RS/AG</td><td>SM100a+ and H == 7168</td><td>Triton 2-kernel + separate norm</td></tr>
+<tr><td><code>gemm_ar.py</code></td><td><code>o_proj</code> GEMM <b>+ all-reduce</b></td><td>bf16, contiguous, M ∈ [1,512], full NVLink P2P</td><td>GEMM + NCCL AR</td></tr>
+<tr><td><code>gemm_ag.py</code></td><td>latent up_proj GEMM + multicast AG + add3</td><td>SM100+ MNNVL, <b>TP8 only</b>, M ≲ 12</td><td>replicated [3584,7168] GEMM + _add3</td></tr>
+<tr><td><code>all_reduce.py</code></td><td>AR ± residual ± RMSNorm ± deferred MoE finalize</td><td><code>k3_ar_fusion.enabled()</code></td><td>AR + separate norm/add</td></tr>
+<tr><td><code>sp_collective.py</code></td><td>SP reduce-scatter / all-gather over MNNVL push memory</td><td>JSON tuning tables</td><td>NCCL collectives</td></tr>
+<tr><td><code>kda_decode_mtp.py</code></td><td>conv + KDA recurrence + gated output norm, MTP/DSPARK-aware</td><td>shape contract (CuTe DSL)</td><td>unfused Triton chain</td></tr>
+</table>
+<div class="note warn">Nearly all of it is <b>SM100+ (Blackwell)</b>. On Hopper and ROCm the generic
+paths run instead.</div>
+
+<div class="grid2">
+<div>
+<h3>Fused all-reduce family <span class="mono" style="color:var(--dim);font-weight:400">— all_reduce.py</span></h3>
+<table style="font-size:12.5px">
+<tr><th>Entry</th><th>Algorithm</th><th>Epilogue</th></tr>
+<tr><td><code>push_res</code></td><td>1-shot multicast push</td><td>residual add</td></tr>
+<tr><td><code>push_norm</code></td><td>1-shot multicast push</td><td>residual + RMSNorm</td></tr>
+<tr><td><code>pull_res</code></td><td>low-SM NVLS 2-shot RS + bcast, in place</td><td>residual add</td></tr>
+<tr><td><code>pull_norm</code></td><td>low-SM NVLS 2-shot</td><td>residual + RMSNorm</td></tr>
+<tr><td><code>finalize_push_norm</code></td><td>1-shot push</td><td>deferred MoE finalize + norm</td></tr>
+</table>
+<p style="font-size:12.5px;color:var(--dim)">Selection is by message size against tuning bands
+(RES 128 KB–4 MB, NORM 512 KB–2 MB): small → push, large → NVLS pull. Enabled by
+<code>SGLANG_K3_AR_FUSION</code>, and only when <code>attn_tp_size == tp_size</code>. When on,
+<code>o_proj</code> must write into caller-owned storage (a slice of the persistent symmetric buffer);
+if the linear method cannot take an <code>output_tensor</code>, the layer silently reverts to
+<code>reduce_results=True</code>.</p>
+</div>
+<div>
+<h3>Multi-stream overlap map <span class="mono" style="color:var(--dim);font-weight:400">— 2372-2380</span></h3>
+<table style="font-size:12.5px">
+<tr><th>Slot</th><th>Used by</th><th>Overlaps</th></tr>
+<tr><td>0</td><td>MoE dual-stream shared-expert tail (SBO)</td><td>routed a2a</td></tr>
+<tr><td>1</td><td>DeepseekV2AttentionMLA base internals</td><td>(forwarded, unused by K3)</td></tr>
+<tr><td>2</td><td>MLA output-gate GEMM <b>and</b> KDA [f_a|b] GEMVs</td><td>the attention core</td></tr>
+</table>
+<p style="font-size:12.5px;color:var(--dim)">Slot 2 is shared because MLA and KDA never run concurrently
+within one forward. Both users cap at 128 tokens on Blackwell / 64 elsewhere — above that the core
+kernels already saturate the SMs and overlap only adds sync overhead. <b>All three are disabled on
+HIP.</b></p>
+<h3>SP collective tuning</h3>
+<p style="font-size:12.5px;color:var(--dim)">JSON tables in
+<code>kernels/ops/kimi_k3/configs/sp_collective/</code> (<code>world=4,H=7168,device_name=NVIDIA_GB300.json</code>,
+<code>world=8,…</code>) map a token bucket → <code>{strategy: push|pull|nccl, num_blocks, block_size}</code>.
+Retuning is a JSON swap, no recompile. Missing table → NCCL fallback.</p>
+</div>
+</div>
+
+<h3>Environment variables <span class="mono" style="color:var(--dim);font-weight:400">— environ.py ~724-843</span></h3>
+<table>
+<tr><th>Var</th><th>Effect</th></tr>
+<tr><td><code>SGLANG_K3_AR_FUSION</code></td><td>enables the fused all-reduce family</td></tr>
+<tr><td><code>SGLANG_K3_SP_COLLECTIVE</code></td><td>enables SP collectives → SP-MoE token sharding</td></tr>
+<tr><td><code>SGLANG_K3_SP_ATTN_RES</code></td><td>carries the attn-res stream sharded across SP-MoE layers</td></tr>
+<tr><td><code>SGLANG_K3_GEMM_AR</code></td><td>fused o_proj GEMM + all-reduce</td></tr>
+<tr><td><code>SGLANG_K3_FUSED_FRONT</code></td><td>merged MoE front GEMM — <b>default on</b></td></tr>
+<tr><td><code>SGLANG_K3_ATTN_RES_MODE=jit</code></td><td>set on H100/H200/GB cells in the jsx, but <b>not declared in <code>environ.py</code></b> on this branch — read elsewhere, or stale. Verify before relying on it</td></tr>
+<tr><td><code>SGLANG_MOE_FUSED_GATE_RADIX</code></td><td>radix router in the TopK layer</td></tr>
+<tr><td><code>SGLANG_OPT_DEEPGEMM_MEGA_MOE_NUM_MAX_TOKENS_PER_RANK</code></td><td>must cover the per-rank prefill chunk under MegaMoE</td></tr>
+<tr><td><code>SGLANG_USE_AITER</code>, <code>SGLANG_AITER_K3_OPT</code>, <code>AITER_FLYDSL_FORCE</code>, <code>AITER_SITUV2_A8W4</code></td><td>ROCm / AITER K3 path</td></tr>
+</table>
+
+<!-- ============ 7. SERVING ============ -->
+<h2>7 · Serving recipes <span class="mono" style="font-size:12px;color:var(--dim)">— docs/src/snippets/configs/moonshotai/kimi-k3.jsx</span></h2>
+<p style="font-size:13px;color:var(--dim)">Common to every cell:
+<code>--trust-remote-code --model-path moonshotai/Kimi-K3 --reasoning-parser kimi_k3 --tool-call-parser kimi_k3</code>.
+The <code>benchmark/*/script/v1/launch-k3.sh</code> scripts that snippet cites are <b>not</b> in the
+public repo — the jsx cells are the record.</p>
+
+<table>
+<tr><th>HW</th><th>Nodes</th><th>Strategy</th><th>Parallelism</th><th>Notable flags</th></tr>
+<tr><td><b>B300</b></td><td>1×8</td><td>low-latency</td><td>TP8</td><td><code>--mem-fraction-static 0.85</code></td></tr>
+<tr><td>B300</td><td>1×8</td><td>balanced / high-thrpt</td><td>TP8 + <b>DCP8</b></td><td><code>--disable-custom-all-reduce</code></td></tr>
+<tr><td><b>GB300</b></td><td>2×4</td><td>low-latency</td><td>TP8</td><td><code>--enable-symm-mem</code> (MNNVL)</td></tr>
+<tr><td>GB300</td><td>2×4</td><td>balanced</td><td>TP8 + DCP8</td><td></td></tr>
+<tr><td><b>B200</b></td><td>2×8</td><td>low-latency</td><td>TP8 × <b>PP2</b></td><td><code>specCollapsePp: true</code> → flattens to TP16 under DSPARK</td></tr>
+<tr><td>B200</td><td>2×8</td><td>balanced</td><td>TP8×PP2 + DCP8 + EP8</td><td><code>--moe-runner-backend flashinfer_mxfp4</code>, <code>--decode-attention-backend cutedsl_mla</code></td></tr>
+<tr><td><b>GB200</b></td><td>4×4</td><td>low-latency</td><td>TP16</td><td><code>--enable-symm-mem</code>, <code>NCCL_MNNVL_ENABLE=1</code></td></tr>
+<tr><td>GB200</td><td>4×4</td><td>balanced</td><td>TP16 + DCP16</td><td></td></tr>
+<tr><td><b>H200</b></td><td>2×8</td><td>low-lat / balanced</td><td>TP16 + EP16</td><td><code>--moe-runner-backend marlin</code>, <code>--decode-attention-backend flashmla</code></td></tr>
+<tr><td>H200</td><td>4×8</td><td>high-throughput</td><td>TP32 + EP32</td><td><code>--mamba-radix-cache-strategy extra_buffer_lazy</code>, <code>--mem-fraction-static 0.90</code></td></tr>
+<tr><td><b>H100</b></td><td>4×8</td><td>all</td><td>TP32 + EP32</td><td>marlin + flashmla, <code>--dist-timeout 3600</code>, <code>SGLANG_K3_ATTN_RES_MODE=jit</code>, <code>SGLANG_MOE_FUSED_GATE_RADIX=1</code></td></tr>
+<tr><td><b>MI350X / MI355X</b></td><td>1×8</td><td>balanced</td><td>TP8 (no DCP, no EP)</td><td><code>--attention-backend triton --dtype bfloat16 --cuda-graph-max-bs 256</code></td></tr>
+</table>
+
+<p style="font-size:12.5px;color:var(--dim)">PD-disaggregated cells also exist: B300 prefill long-context
+is <b>TP1 × PP8</b> (TP1 avoids replicating the MLA KV across ranks); B200 prefill default is TP1 × PP16;
+B200 decode balanced is flat TP16 + DCP16 with
+<code>--disaggregation-transfer-backend nixl --disaggregation-decode-extra-slots 16</code>.</p>
+
+<h3>Terminology</h3>
+<table style="font-size:12.5px">
+<tr><td><b>DCP</b></td><td>decode context parallel — shards the TP-replicated MLA latent KV. Only the 24 MLA layers benefit; the 69 KDA state slabs are per-GPU and never DCP-sharded</td></tr>
+<tr><td><b>DCPEP</b></td><td>DCP and EP composed on the same rank set (B200 balanced: DCP8 + EP8)</td></tr>
+<tr><td><b>DSPARK</b></td><td>K3 speculative decoding. Draft <code>RadixArk/Kimi-K3-DSpark</code>, block size 7, plus <code>--enable-linear-replayssm-spec</code>. A <code>pp_size == 1</code> spec algorithm cannot run a pipelined recipe — cells either opt into <code>specCollapsePp</code> or are unavailable under speculation</td></tr>
+</table>
+
+<div class="note warn"><b>AMD / ROCm status.</b> Both ROCm cells are marked
+<code>verified: false, verificationStatus: "in-progress"</code> in the jsx — a starting point, not a
+validated recipe. Required env: <code>SGLANG_USE_AITER=1 SGLANG_AITER_K3_OPT=1 AITER_FLYDSL_FORCE=1
+AITER_SITUV2_A8W4=1</code> — the last implies the expert path is <b>A8W4 via AITER</b>, not
+mxfp4/marlin. No <code>cutedsl_kda</code>/<code>cutedsl_mla</code>/<code>flashmla</code>; TP8 single node
+only; <code>alt_streams</code> disabled on HIP (so SBO, the MLA gate stream and the KDA [f_a|b] stream are
+all off); everything SM100 (fused AR, gemm_ar, gemm_ag, SP collectives, TMA attn-res) is unavailable —
+attn-res falls back to the Triton 2-kernel pipeline, collectives to RCCL.
+<br><br><b>Practical read:</b> on ROCm today K3 runs the <i>generic</i> SGLang paths for everything
+K3-specific except Triton attn-res and AITER's SiTU/A8W4 MoE. The Blackwell-only fusion stack is the bulk
+of the branch's performance work. Nightlies: <code>amd/mi355x-kimi-k3-nightly</code>,
+<code>kimi-k3-rocm720-nightly</code>.</div>
+
+<h3>Docker / dependency chain</h3>
+<table style="font-size:12.5px">
+<tr><td>1</td><td>Base <code>lmsysorg/sglang:v0.5.16</code>, then editable install of the <code>kimi-k3</code> branch</td></tr>
+<tr><td>2</td><td><b>DeepEP patched</b> (5 changes) and rebuilt for sm_90 / sm_100a / sm_103a</td></tr>
+<tr><td>3</td><td><b>DeepGEMM</b> → <code>0.1.5.post1</code> for the K3 SiTU JIT headers used by MegaMoE</td></tr>
+<tr><td>4</td><td><b>FlashInfer 0.6.15.post1</b> with a prebuilt trtllm-gen cubin pool (~1.5 GB) at <code>SGLANG_TRTLLM_GEN_MOE_CUBIN_POOL</code>, plus CuTeDSL MLA DCP runtime patches</td></tr>
+<tr><td>5</td><td>CI mirror <code>scripts/ci/cuda/ci_install_kimi_k3.sh</code> pins the same diffs and cubin pool SHA256</td></tr>
+</table>
+<div class="note">If you build K3 yourself, the <b>DeepEP patch</b> and the <b>cubin pool</b> are the two
+things most likely to bite: an unpatched DeepEP fails at top-k 16 / hidden 3584, and a missing cubin pool
+silently drops you off the <code>flashinfer_mxfp4</code> MoE runner.</div>
+
+<h3>XTML — reasoning and tool calls</h3>
+<pre>&lt;|open|&gt;think&lt;|sep|&gt;     ... reasoning ...   &lt;|close|&gt;think&lt;|sep|&gt;
+&lt;|open|&gt;response&lt;|sep|&gt;  ... text ...        &lt;|close|&gt;response&lt;|sep|&gt;
+&lt;|open|&gt;tools&lt;|sep|&gt;
+  &lt;|open|&gt;call tool="name" index="1"&lt;|sep|&gt;
+    &lt;|open|&gt;argument key="k" type="string"&lt;|sep|&gt;value&lt;|close|&gt;argument&lt;|sep|&gt;
+  &lt;|close|&gt;call&lt;|sep|&gt;
+&lt;|close|&gt;tools&lt;|sep|&gt;</pre>
+<p style="font-size:12.5px;color:var(--dim)">Detector <code>function_call/kimik3_detector.py</code> +
+<code>kimik3_format.py</code> + xgrammar structural tags in <code>kimik3_structural_tag.py</code>.
+<code>type="string"</code> values are raw text; other types are JSON-decoded; escaping is
+<code>&amp;quot;</code>/<code>&amp;amp;</code>; streaming holds back partial markers. Reasoning parser is
+<code>KimiK3Detector</code> in <code>parser/reasoning_parser.py</code> with <code>force_reasoning</code>
+for resumption. <code>parser/template_detection.py</code> auto-sets both on
+<code>model_type == "kimi_k3"</code>, so the explicit CLI flags are belt-and-braces.</p>
+
+<h3>Multimodal specifics</h3>
+<p style="font-size:12.5px;color:var(--dim)">GPU preprocessing
+(<code>KimiK3GPUProcessorWrapper</code>, extends the K2.5 wrapper) <b>preserves the alpha channel</b>
+through bicubic resize and composites onto a background configured in the checkpoint's
+<code>preprocessor_config.json</code> (<code>transparent_bg_config</code>: chessboard / white / black /
+gray) — new in K3 relative to K2.5. One <code>MultimodalDataItem</code> must carry exactly one grid so
+CUDA-IPC lease accounting stays per-item.</p>
+
+<!-- ============ 8. QUICK START ============ -->
+<h2>8 · Quick start</h2>
+<pre># the model is not on main
+gh repo clone sgl-project/sglang -- --depth 1
+cd sglang &amp;&amp; git fetch --depth 1 origin kimi-k3:kimi-k3 &amp;&amp; git checkout kimi-k3
+
+# reading order
+python/sglang/srt/models/kimi_k3.py          # 1-124 header, 354 MoE, 1206 KDA,
+                                             # 1703 MLA, 1876 layer, 2344 backbone
+python/sglang/srt/layers/attn_residual.py    # the attention-residual mechanism
+python/sglang/kernels/ops/kimi_k3/           # the fused kernels
+docs/src/snippets/configs/moonshotai/kimi-k3.jsx   # every serving recipe</pre>
+
+<h3>Tests</h3>
+<table style="font-size:12.5px">
+<tr><td><code>test/registered/kernels/ops/kimi_k3/test_compute.py</code></td><td>SiTU, tiny GEMMs, attn-res aggregation</td></tr>
+<tr><td><code>…/kimi_k3/test_collectives.py</code></td><td>fused AR / SP collectives</td></tr>
+<tr><td><code>…/ops/test_kimi_k3_prerequisite_ops.py</code></td><td>the 896-expert / 7168 / 3584 shape contracts</td></tr>
+<tr><td><code>…/ops/attention/test_kda_fused_decode.py</code></td><td>KDA fused decode vs reference</td></tr>
+<tr><td><code>test/registered/unit/parser/test_kimik3_reasoning_parser.py</code>, <code>…/function_call/test_kimik3_detector.py</code></td><td>serving-layer parsers</td></tr>
+</table>
+
+<footer>
+Generated from a read of <code>sgl-project/sglang@36e31ee</code> (branch <code>kimi-k3</code>), 2026-08-04.
+Claims not verifiable in the repo are excluded: the exact <code>kda_layers</code> index list is
+checkpoint (<code>config.json</code>) data, not repo data — only the 69/24 counts and the 1-based
+membership test <code>(layer_idx + 1) in kda_layers</code> are in the source.
+</footer>
+
+</div>
+</body>
+</html>
