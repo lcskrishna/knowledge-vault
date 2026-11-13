@@ -21,4 +21,4 @@ This is one place where you can find my notes for my study. Some of these are us
 ### GPU Programming Concepts
 
 * [GPU Concpets - SharedMemory](https://github.com/lcskrishna/knowledge-vault/blob/main/cuda-concepts/SharedMemory/Shared%20Memory.md)
-* [Mono Kernels, explained from zero](mono-kernels.md) — AMD decode megakernels on MI350X/MI355X: what they are and how vLLM and SGLang add one (persistent resident grid, tagged-mailbox hand-offs, in-kernel all-reduce, fail-stop)
+* [Mono Kernels, explained from zero](inference-concepts/mono-kernels.md) — AMD decode megakernels on MI350X/MI355X: what they are and how vLLM and SGLang add one (persistent resident grid, tagged-mailbox hand-offs, in-kernel all-reduce, fail-stop)
